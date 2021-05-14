@@ -1,4 +1,4 @@
-wget -O /usr/local/bin/ad-blocker.sh "https://raw.githubusercontent.com/0xW1sKy/ad-blocker/master/ad-blocker.sh"
+wget -O /usr/local/bin/ad-blocker.sh "https://raw.githubusercontent.com/jarrodlombardo/ad-blocker/master/ad-blocker.sh"
 chown root:root /usr/local/bin/ad-blocker.sh
 chmod 755 /usr/local/bin/ad-blocker.sh
 touch /usr/local/etc/ad-blocker-wl.conf
