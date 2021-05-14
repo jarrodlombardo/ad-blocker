@@ -3,6 +3,7 @@
 ###########################
 # (C) 2017 Steven Black
 # Updated by Kyle Burk
+# Updated by Jarrod Lombardo
 ###########################
 #
 # 2017-04-17 - 1.0.0 Initial release
@@ -12,6 +13,7 @@
 # 2017-05-17 - 1.1.3 Remove local declarations for improved compatibility
 # 2017-05-17 - 1.1.4 Cleanup syntax as per shellcheck.net suggestions
 # 2020-12-28 - 2.0.0 Modify to use host file lists, remove yoyo
+# 2021-05-12 - 2.1.0 fix to work on DSM 6.2.4 with DNSServer 2021-03-26.
 ###########################
 
 # routine for ensuring all necessary dependencies are found
@@ -87,12 +89,13 @@ fetch_blocklist () {
     sed -r '/^\s*$/d' | \
     sed -r 's/(.*)(\s)$/\1/g' | \
     sed -r 's/(.*\s)?(.*)$/\2/g' | \
-    sed -r 's/(.*)+$/zone "\1" { type master; notify no; file "null.zone.file"; };/g' >> "/tmp/ad-blocker.new"
+    sed -r 's/(.*)+$/zone "\1" { type master; notify no; file "\/etc\/zone\/master\/null.zone.file"; };/g' >> "/tmp/ad-blocker.new"
   printf "\n" >> "/tmp/ad-blocker.new"
 }
 
 # user-specified list of domains to be blocked in addition
 apply_blacklist () {
+  echo apply_blacklist
   BlackList="${ConfDir}/ad-blocker-bl.conf"
   BlockList="/tmp/ad-blocker.new"
 
@@ -114,7 +117,7 @@ apply_blacklist () {
     # if domain already listed then skip it and continue on to the next line
     # make sure you don't get a false positive with a partial match
     # by using the "-w" option on grep
-    Found=$(grep -w "$Domain" "$BlockList")
+    Found=$(grep -iw "$Domain" "$BlockList")
     if [ ! -z "$Found" ]; then
       continue;
     fi
@@ -140,19 +143,43 @@ update_whitelist () {
 
 # user-specified list of domains to remain unblocked
 apply_whitelist () {
-  WhiteList="${ConfDir}/ad-blocker-wl.conf"
+  echo apply_whitelist
+  WhiteListConf="${ConfDir}/ad-blocker-wl.conf"
+  WhiteList="/tmp/ad-blocker-wl.new"
   BlockList="/tmp/ad-blocker.new"
   BlockListTmp="/tmp/ad-blocker.tmp"
   WhiteListTmp="/tmp/ad-blocker-wl.tmp"
   # skip if the config doesn't exist
-  if [ ! -f "$WhiteList" ]; then
+  if [ ! -f "$WhiteListConf" ]; then
     return 0
   fi
 
   if [ -f "$WhiteListTmp" ]; then
-    cat "$WhiteListTmp" | sort | uniq -i | grep -v 'zone "" { type master; notify no; file "null.zone.file"; };' > "$WhiteList"
+    cat "$WhiteListTmp" | sort | uniq -i | grep -v 'zone "" { type master; notify no; file "\/etc\/zone\/master\/null.zone.file"; };' > "$WhiteList"
   fi
 
+  # process the whitelistconf skipping over any comment lines
+  while read -r Line
+  do
+    # strip the line if it starts with a '#'
+    # if the line was stripped, then continue on to the next line
+    Domain=$(echo "$Line" | grep -v "^[[:space:]*\#]")
+    if [ -z "$Domain" ]; then
+      continue;
+    fi
+
+    # if domain already listed then skip it and continue on to the next line
+    # make sure you don't get a false positive with a partial match
+    # by using the "-w" option on grep
+    Found=$(grep -iw "$Domain" "$WhiteList")
+    if [ ! -z "$Found" ]; then
+      continue;
+    fi
+
+    # domain not found, so append it to the list
+    echo "$Domain" >> "$WhiteList"
+
+  done < "$WhiteListConf"
 
   # process the whitelist skipping over any comment lines
   while read -r Line
@@ -166,7 +193,7 @@ apply_whitelist () {
 
     # copy every line in the blocklist *except* those matching the whitelisted domain
     # into a temp file and then copy the temp file back over the original source
-    grep -w -v "$Domain" "$BlockList" > "$BlockListTmp"
+    grep -iw -v "$Domain" "$BlockList" > "$BlockListTmp"
     mv "$BlockListTmp" "$BlockList"
   done < "$WhiteList"
 }
@@ -178,7 +205,7 @@ update_zone_data () {
   BlockListTmp="/tmp/ad-blocker.tmp"
   BlockList="/tmp/ad-blocker.new"
   # Remove Dupes
-  cat "$BlockList" | sort | uniq -i | grep -v 'zone "" { type master; notify no; file "null.zone.file"; };' > "$BlockListTmp"
+  cat "$BlockList" | sort | uniq -i | grep -v 'zone "" { type master; notify no; file "\/etc\/zone\/master\/null.zone.file"; };' > "$BlockListTmp"
   mv "$BlockListTmp" "$BlockList"
   # move the final version of the block list to the final location
   mv "$BlockList" "$ZoneDataDB"
@@ -217,17 +244,9 @@ update_zone_master () {
     echo '* IN A   127.0.0.1'; } > "$ZoneMasterFile"
 
   # reload the server config to pick up the changes
+  # if reload is failing, probably the configuration has errors; check the DNSServer logs.
   "${RootDir}"/script/reload.sh 'null.zone.file'
 }
-
-# manual_fixes () {
-#   ZoneDataDB="${ZoneDataDir}/ad-blocker.db"
-#   ZoneDataDBTmp="${ZoneDataDir}/ad-blocker.tmp"
-#   cat ad-blocker.db | \
-#     grep -v 'zone "format)">" { type master; notify no; file "null.zone.file"; };' | \
-#     grep -v 'zone "format)</title>" { type master; notify no; file "null.zone.file"; };' > ad-blocker.tmp
-#     'zone "href="rss/1.0/adservers.rss">" { type master; notify no; file "null.zone.file"; };'
-# }
 
 # Global vars for common paths
 ConfDir="/usr/local/etc"
