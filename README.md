@@ -88,15 +88,13 @@ The ad-blocking functionality should now be in effect. You can test the effectiv
 
 The run time should be set to run no more than once a day and be performed at an off-peak traffic time. The block lists don't change that frequently so be courteous to the provider. It is not strictly necessary to have the run details sent via email, but enabling it may help if there's a need to troubleshoot.
 
-## Blacklist/Whitelist
+## Blocklist/Allowlist
 
-User-defined blacklist/whitelist functionality has been added to allow personalized rules to either enhance blocking or permit access. Templates for the configuration files of this functionality are automatically created upon the initial run of the `ad-blocker.sh` script.
+User-defined blocklist/allowlist functionality has been added to allow personalized rules to either enhance blocking or permit access. Templates for the configuration files of this functionality are automatically created upon the initial run of the `ad-blocker.sh` script.
 
-### Blacklist
+### Blocklist
 
-User-defined blacklist functionality is currently broken.
-
-<!-- A user-defined blacklist functionality is available to add custom domains into the block list. This may help fill in any "gaps" for domains not captured by the [yoyo.org](http://pgl.yoyo.org/adservers/) block list. There is no harm if a domain appears in both the user-specified black list and the main list as the scripts will detect the duplicate and skip over any redundant mentions.
+A user-defined blocklist functionality is available to add custom domains into the block list. This may help fill in any "gaps" for domains not captured by the many block lists. There is no harm if a domain appears in both the user-specified block list and the main list as the scripts will detect the duplicate and skip over any redundant mentions.
 
 1. SSH as the administrator to the Synology device
     * `ssh admin@synology.example.com`
@@ -110,11 +108,10 @@ User-defined blacklist functionality is currently broken.
 1. Re-run the `ad-blocker.sh` script to pick up the changes (or wait until next scheduled time)
     * `cd /usr/local/bin`
     * `sudo ./ad-blocker.sh`
- -->
 
-### Whitelist
+### Allowlist
 
-The user-defined whitelist allows specified domains to continue to work despite their appearance in either the Block list or the blacklist. Note that the whitelist is applied last, regardless as to the the source of the domain.
+The user-defined allowlist allows specified domains to continue to work despite their appearance in either the Block list or the blocklist. Note that the allowlist is applied last, regardless as to the the source of the domain.
 
 1. SSH as the administrator to the Synology device
     * `ssh admin@synology.example.com`
@@ -136,5 +133,5 @@ This solution works well for blocking the vast majority of ad providers. It shou
 ## Thanks
 
 [Steven Black](https://github.com/steventblack)
-[Another Steven Black?](https://github.com/stevenblack)
-For real tho? is this the same guy or just a weird coincidence?
+
+[Another Steven Black?](https://github.com/stevenblack) For real tho? is this the same guy or just a weird coincidence?
