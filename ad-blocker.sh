@@ -14,6 +14,7 @@
 # 2017-05-17 - 1.1.4 Cleanup syntax as per shellcheck.net suggestions
 # 2020-12-28 - 2.0.0 Modify to use host file lists, remove yoyo
 # 2021-05-12 - 2.1.0 fix to work on DSM 6.2.4 with DNSServer 2021-03-26.
+# 2021-05-16 - 2.1.1 Rename variables for clarity and inclusiveness.
 ###########################
 
 # routine for ensuring all necessary dependencies are found
@@ -34,31 +35,31 @@ check_deps () {
   fi
 }
 
-# check for whitelist/blacklist configuration files & create templates if not present
+# check for configuration files & create templates if not present
 check_conf () {
-  WhiteList="${ConfDir}/ad-blocker-wl.conf"
-  BlackList="${ConfDir}/ad-blocker-bl.conf"
+  AllowList="${ConfDir}/ad-blocker-allow.conf"
+  BlockList="${ConfDir}/ad-blocker-block.conf"
 
-  # if no white list found, then create a template & instructions
-  if [ ! -f "$WhiteList" ]; then
-    printf "No white list found; creating template\n" >&2
+  # if no allow list found, then create a template & instructions
+  if [ ! -f "$AllowList" ]; then
+    printf "No allow list found; creating template\n" >&2
 
-  { echo "# White list of domains to remain unblocked for ad-blocker.sh";
+  { echo "# Allow list of domains to remain unblocked for ad-blocker.sh";
       echo "# Add one fully-qualified domain name per line";
       echo "# Comments are indicated by a '#' as the first character";
       echo "# example:";
-      echo "# ad.example.com"; } > "$WhiteList"
+      echo "# ad.example.com"; } > "$AllowList"
   fi
 
-  # if no black list found, then create a template & instructions
-  if [ ! -f "$BlackList" ]; then
-    printf "No black list found; creating template\n" >&2
+  # if no block list found, then create a template & instructions
+  if [ ! -f "$BlockList" ]; then
+    printf "No block list found; creating template\n" >&2
 
-    { echo "# Black list of additional domains for ad-blocker.sh";
+    { echo "# Block list of additional domains for ad-blocker.sh";
       echo "# Add one fully-qualified domain name per line";
       echo "# Comments are indicted by a '#' as the first character";
       echo "# example:";
-      echo "# ad.example.com"; } > "$BlackList"
+      echo "# ad.example.com"; } > "$BlockList"
   fi
 }
 
@@ -94,17 +95,17 @@ fetch_blocklist () {
 }
 
 # user-specified list of domains to be blocked in addition
-apply_blacklist () {
-  echo apply_blacklist
-  BlackList="${ConfDir}/ad-blocker-bl.conf"
+apply_blocklistconf () {
+  echo apply_blocklistconf
+  BlockListConf="${ConfDir}/ad-blocker-block.conf"
   BlockList="/tmp/ad-blocker.new"
 
   # skip if the config doesn't exist
-  if [ ! -f "$BlackList" ]; then
+  if [ ! -f "$BlockListConf" ]; then
     return 0;
   fi
 
-  # process the blacklist skipping over any comment lines
+  # process the BlockListConf skipping over any comment lines
   while read -r Line
   do
     # strip the line if it starts with a '#'
@@ -123,42 +124,42 @@ apply_blacklist () {
     fi
 
     # domain not found, so append it to the list
-    echo "zone \"$Domain\" { type master; notify no;};" >> "$BlockList"
+    echo "zone \"$Domain\" { type master; notify no; file \"/etc/zone/master/null.zone.file\"; };" >> "$BlockList"
 
-  done < "$BlackList"
+  done < "$BlockListConf"
 }
 
-update_whitelist () {
-  WhiteListTmp="/tmp/ad-blocker-wl.tmp"
-  WhiteListURL="$1"
-  printf "Pulling whitelist from %s\n" "${WhiteListURL}" >&2
-  wget -qO- "$WhiteListURL" | \
+update_allowlist () {
+  AllowListTmp="/tmp/ad-blocker-allow.tmp"
+  AllowListURL="$1"
+  printf "Pulling allowlist from %s\n" "${AllowListURL}" >&2
+  wget -qO- "$AllowListURL" | \
     sed -e 's/\s/ /g' | \
     sed -s -e 's/ *$//g' | \
     sed -s -r 's/([^#].*)?(#)+(.*)?/\1/g' | \
     sed -r '/^\s*$/d' | \
     sed -r 's/(.*)(\s)$/\1/g' | \
-    sed -r 's/(.*\s)?(.*)$/\2/g' >> "$WhiteListTmp"
+    sed -r 's/(.*\s)?(.*)$/\2/g' >> "$AllowListTmp"
 }
 
 # user-specified list of domains to remain unblocked
-apply_whitelist () {
-  echo apply_whitelist
-  WhiteListConf="${ConfDir}/ad-blocker-wl.conf"
-  WhiteList="/tmp/ad-blocker-wl.new"
+apply_allowlist () {
+  echo apply_allowlist
+  AllowListConf="${ConfDir}/ad-blocker-allow.conf"
+  AllowList="/tmp/ad-blocker-allow.new"
   BlockList="/tmp/ad-blocker.new"
   BlockListTmp="/tmp/ad-blocker.tmp"
-  WhiteListTmp="/tmp/ad-blocker-wl.tmp"
+  AllowListTmp="/tmp/ad-blocker-allow.tmp"
   # skip if the config doesn't exist
-  if [ ! -f "$WhiteListConf" ]; then
+  if [ ! -f "$AllowListConf" ]; then
     return 0
   fi
 
-  if [ -f "$WhiteListTmp" ]; then
-    cat "$WhiteListTmp" | sort | uniq -i | grep -v 'zone "" { type master; notify no; file "\/etc\/zone\/master\/null.zone.file"; };' > "$WhiteList"
+  if [ -f "$AllowListTmp" ]; then
+    cat "$AllowListTmp" | sort | uniq -i | grep -v 'zone "" { type master; notify no; file "\/etc\/zone\/master\/null.zone.file"; };' > "$AllowList"
   fi
 
-  # process the whitelistconf skipping over any comment lines
+  # process the allowlistconf skipping over any comment lines
   while read -r Line
   do
     # strip the line if it starts with a '#'
@@ -171,17 +172,17 @@ apply_whitelist () {
     # if domain already listed then skip it and continue on to the next line
     # make sure you don't get a false positive with a partial match
     # by using the "-w" option on grep
-    Found=$(grep -iw "$Domain" "$WhiteList")
+    Found=$(grep -iw "$Domain" "$AllowList")
     if [ ! -z "$Found" ]; then
       continue;
     fi
 
     # domain not found, so append it to the list
-    echo "$Domain" >> "$WhiteList"
+    echo "$Domain" >> "$AllowList"
 
-  done < "$WhiteListConf"
+  done < "$AllowListConf"
 
-  # process the whitelist skipping over any comment lines
+  # process the allowlist skipping over any comment lines
   while read -r Line
   do
     # strip the line if it starts with a '#'
@@ -191,11 +192,11 @@ apply_whitelist () {
       continue;
     fi
 
-    # copy every line in the blocklist *except* those matching the whitelisted domain
+    # copy every line in the blocklist *except* those matching the allowlisted domain
     # into a temp file and then copy the temp file back over the original source
     grep -iw -v "$Domain" "$BlockList" > "$BlockListTmp"
     mv "$BlockListTmp" "$BlockList"
-  done < "$WhiteList"
+  done < "$AllowList"
 }
 
 # make sure the include statement is added to the ZoneDataFile
@@ -299,7 +300,7 @@ BlockLists=(
   "https://v.firebog.net/hosts/Prigent-Malware.txt"
   "https://raw.githubusercontent.com/HorusTeknoloji/TR-PhishingList/master/url-lists.txt"
 )
-WhiteLists=(
+AllowLists=(
   "https://raw.githubusercontent.com/anudeepND/whitelist/master/domains/whitelist.txt"
 )
 
@@ -307,14 +308,14 @@ WhiteLists=(
 check_deps
 check_conf
 check_user "$@"
-for list in ${BlockLists[@]}; do
-  fetch_blocklist $list
+for blist in ${BlockLists[@]}; do
+  fetch_blocklist $blist
 done
-for wlist in ${WhiteLists[@]}; do
-  update_whitelist $wlist
+for alist in ${AllowLists[@]}; do
+  update_allowlist $alist
 done
-apply_blacklist
-apply_whitelist
+apply_blocklistconf
+apply_allowlist
 update_zone_data
 update_zone_master
 
