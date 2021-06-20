@@ -159,6 +159,11 @@ apply_allowlist () {
     cat "$AllowListTmp" | sort | uniq -i | grep -v 'zone "" { type master; notify no; file "\/etc\/zone\/master\/null.zone.file"; };' > "$AllowList"
   fi
 
+  AllowListLog="/tmp/ad-blocker-allow.log"
+  if [ -f "$AllowListLog" ]; then
+    rm "$AllowListLog"
+  fi
+
   # process the allowlistconf skipping over any comment lines
   while read -r Line
   do
@@ -171,9 +176,10 @@ apply_allowlist () {
 
     # if domain already listed then skip it and continue on to the next line
     # make sure you don't get a false positive with a partial match
-    # by using the "-w" option on grep
-    Found=$(grep -iw "$Domain" "$AllowList")
+    # by using the "-x" option on grep to match the whole line.
+    Found=$(grep -ix "$Domain" "$AllowList")
     if [ ! -z "$Found" ]; then
+      echo "Skipped $Domain" >> "$AllowListLog"
       continue;
     fi
 
@@ -191,6 +197,8 @@ apply_allowlist () {
     if [ -z "$Domain" ]; then
       continue;
     fi
+
+    echo "$Domain" >> "$AllowListLog"
 
     # copy every line in the blocklist *except* those matching the allowlisted domain
     # into a temp file and then copy the temp file back over the original source
